@@ -1,51 +1,106 @@
-const mockHistory = [
-  { id: 90, status: "shipped", total: 128.4, tracking: "TRACK123", updated: "2024-01-22" },
-  { id: 91, status: "processing", total: 64.2, tracking: null, updated: "2024-02-05" },
-];
+"use client";
+
+import { useEffect, useState } from "react";
+import { fetchOrders, type OrderListItem } from "../lib/api";
+import { useAuthStore } from "../lib/store";
 
 export function AccountDashboard() {
+  const { user, isAuthenticated } = useAuthStore();
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadOrders();
+    }
+  }, [isAuthenticated]);
+
+  async function loadOrders() {
+    setIsLoading(true);
+    try {
+      const data = await fetchOrders();
+      setOrders(data.slice(0, 5)); // Show only recent 5
+    } catch {
+      // Silently fail
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <section className="space-y-4 rounded-2xl bg-white p-6 shadow-md">
+        <h2 className="text-2xl font-semibold text-brand-primary">
+          Account dashboard
+        </h2>
+        <p className="text-sm text-brand-muted">
+          Log in to view your orders and account settings.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4 rounded-2xl bg-white p-6 shadow-md">
       <header className="flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold text-brand-primary">Account dashboard</h2>
-        <p className="text-xs text-brand-muted">Access recent orders, invoices, and account preferences.</p>
+        <h2 className="text-2xl font-semibold text-brand-primary">
+          Account dashboard
+        </h2>
+        <p className="text-xs text-brand-muted">
+          Welcome back, {user?.name}
+        </p>
       </header>
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-3 rounded-lg border border-slate-200 p-4">
-          <h3 className="text-lg font-semibold text-brand-primary">Recent orders</h3>
-          <ul className="space-y-2 text-sm">
-            {mockHistory.map((order) => (
-              <li key={order.id} className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-brand-primary">Order #{order.id}</p>
-                  <p className="text-xs text-brand-muted">Updated {order.updated}</p>
-                </div>
-                <div className="text-right text-xs uppercase text-brand-muted">
-                  <p>{order.status}</p>
-                  {order.tracking ? <p>{order.tracking}</p> : <p className="text-amber-500">Pending tracking</p>}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <button className="rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-brand-primary hover:border-brand-accent">
-            View all orders
-          </button>
+          <h3 className="text-lg font-semibold text-brand-primary">
+            Recent orders
+          </h3>
+          {isLoading ? (
+            <p className="text-sm text-brand-muted">Loading...</p>
+          ) : orders.length === 0 ? (
+            <p className="text-sm text-brand-muted">No orders yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {orders.map((order) => (
+                <li
+                  key={order.id}
+                  className="flex items-center justify-between"
+                >
+                  <div>
+                    <p className="font-medium text-brand-primary">
+                      {order.order_number}
+                    </p>
+                    <p className="text-xs text-brand-muted">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs">
+                    <p className="uppercase text-brand-muted">{order.status.replace(/_/g, " ")}</p>
+                    <p className="font-medium">€ {order.total_price.toFixed(2)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+
         <div className="space-y-3 rounded-lg border border-slate-200 p-4">
           <h3 className="text-lg font-semibold text-brand-primary">Profile</h3>
-          <form className="space-y-3 text-sm">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase text-brand-muted">Company name</span>
-              <input className="rounded-md border border-slate-200 px-3 py-2" defaultValue="NovaPrint Labs" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase text-brand-muted">VAT number</span>
-              <input className="rounded-md border border-slate-200 px-3 py-2" defaultValue="NL123456789B01" />
-            </label>
-            <button className="rounded-md bg-brand-accent px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500">
-              Save changes
-            </button>
-          </form>
+          <div className="space-y-2 text-sm">
+            <div>
+              <span className="text-brand-muted">Email: </span>
+              <span className="font-medium">{user?.email}</span>
+            </div>
+            <div>
+              <span className="text-brand-muted">Company: </span>
+              <span className="font-medium">{user?.company_name || "—"}</span>
+            </div>
+            <div>
+              <span className="text-brand-muted">Role: </span>
+              <span className="font-medium capitalize">{user?.role}</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
